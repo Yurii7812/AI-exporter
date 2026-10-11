@@ -118,12 +118,17 @@ def main():
     ap.add_argument('--stdout', action='store_true', help='print to stdout instead of writing a file')
     args = ap.parse_args()
 
-    m = re.search(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', args.url)
+    m = re.search(r'chatgpt\.com/(share|c)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{2,4}-[0-9a-f]{4}-[0-9a-f]{12})', args.url)
     if not m:
-        raise SystemExit('error: share ID not found in URL')
-    arr = flat_array(fetch_html('https://chatgpt.com/share/' + m.group(1)))
-    conv = find_conversation(decode(arr, 0))
+        raise SystemExit('error: chat ID not found in URL')
+    arr = flat_array(fetch_html(f'https://chatgpt.com/{m.group(1)}/{m.group(2)}'))
+    root = decode(arr, 0)
+    conv = find_conversation(root)
     if not conv:
+        routes = (root.get('loaderData') or {}).get('routes/share.$shareId.($action)') or {}
+        resp = routes.get('serverResponse') or {}
+        if resp.get('type') == 'error' and resp.get('error'):
+            raise SystemExit('error: ' + resp['error'])
         raise SystemExit('error: conversation data not found in payload')
     title, md = to_markdown(conv)
 

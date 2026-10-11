@@ -10,9 +10,14 @@ ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', 'b': '\b', 'f': '\f', '"': '"', "'":
 
 
 def fetch_html(share_url):
-    req = urllib.request.Request(share_url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode('utf-8')
+    import subprocess
+    r = subprocess.run(['curl', '-sL', '--compressed', '-A', UA,
+                        '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        '-H', 'Accept-Language: ja,en;q=0.9',
+                        share_url], capture_output=True, timeout=60)
+    if r.returncode != 0:
+        raise SystemExit(f'error: fetch failed (curl exit {r.returncode}): {r.stderr.decode(errors="replace")[:200]}')
+    return r.stdout.decode('utf-8')
 
 
 def js_unescape(s):
@@ -121,7 +126,7 @@ def main():
     m = re.search(r'chatgpt\.com/(share|c)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{2,4}-[0-9a-f]{4}-[0-9a-f]{12})', args.url)
     if not m:
         raise SystemExit('error: chat ID not found in URL')
-    arr = flat_array(fetch_html(f'https://chatgpt.com/{m.group(1)}/{m.group(2)}'))
+    arr = flat_array(fetch_html(f'https://chatgpt.com/share/{m.group(2)}'))
     root = decode(arr, 0)
     conv = find_conversation(root)
     if not conv:
